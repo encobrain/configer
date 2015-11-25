@@ -1,0 +1,13 @@
+{
+  "name": "configer",
+  "version": "0.0.1",
+
+  "autor": {
+    "name": "Igor Sosyura",
+    "email": "encobrain@gmail.com"
+  },
+
+  "dependencies": {
+
+  }
+}
