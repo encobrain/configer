@@ -8,7 +8,7 @@ Syntax:
 
     {
         ".prop.*": ".prop2.*", // if no property in "prop" then gets from "prop2"
-        ".prop.*[prop2=value][...]": "$.prop3.*", // if no property in "prop" then gets from "prop3" if "prop2=value" 
+        ".shape[color=red][...].border": ".figure.border", // search for elements. if no property  "prop.*.border" then gets from "figure.border" if "prop.*.color=red" 
         "text": "My id is",
         "id": "{{process.id}}" // get data from global 
         
@@ -53,8 +53,8 @@ Example:
         
         ".people.*.*": ".homo.*",
         
-        ".people.*.*[sex=male]": ".male.*",
-        ".people.*.*[sex=female]": ".female.*"
+        ".people[sex=male].*": ".male.*",
+        ".people[sex=female].*": ".female.*"
         
         
     }
