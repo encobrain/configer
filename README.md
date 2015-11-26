@@ -7,10 +7,17 @@ var config = new Configer(Object | 'path/to/file/name.json' | 'path/to/directory
 Syntax:
 
     {
-        "$.prop.*": "$.prop2.*", // if no property in "prop" then gets from "prop2"
-        "$.prop.*[prop2=value][...]": "$.prop3.*", // if no property in "prop" then gets from "prop3" if "prop2=value" 
-        "name": "{process.title}" // get data from global
-        "text": "My name is {$.name}" // get data from config
+        ".prop.*": ".prop2.*", // if no property in "prop" then gets from "prop2"
+        ".prop.*[prop2=value][...]": "$.prop3.*", // if no property in "prop" then gets from "prop3" if "prop2=value" 
+        "text": "My id is",
+        "id": "{{process.id}}" // get data from global 
+        
+        "prm": {
+            "name": "{..text} {..id}" // gets data from branch up level 2
+            "text": "My name is {.name}" // gets data from current branch
+        },
+        
+        "question": "{prm.name}. Or not?" // get data from root branch
         "someInfo": "Text \{b} text \{/b}" // escape
     }
 
@@ -37,18 +44,17 @@ Example:
         ],
         
         "male": {
-            "eyesColor": "blue",
-            
+            "eyesColor": "blue",           
         },
         
         "female": {
             "eyesColor": "green"
         }
         
-        "$.people.*.*": "$.homo.*",
+        ".people.*.*": ".homo.*",
         
-        "$.people.*.*[sex=male]": "$.male.*",
-        "$.people.*.*[sex=female]": "$.female.*"
+        ".people.*.*[sex=male]": ".male.*",
+        ".people.*.*[sex=female]": ".female.*"
         
         
     }
@@ -62,7 +68,7 @@ Example:
 Priority of extending config
     
     1. From last to begin of params new()
-    2. In each param if it path to directory then load files from long to short names
+    2. In each param if it path to directory then load files from long to short names and last is root.json
     3. On finish of merge do syntax analys
         3.1. extends with filter
         3.2. extends without filter
