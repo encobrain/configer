@@ -1,5 +1,7 @@
 var fs = require('fs'),
-    path = require('path')
+    path = require('path'),
+    UNDEFINED = {},
+    global = (function(){ return this })()
 ;
 
 function extend(orig, obj){
@@ -18,6 +20,20 @@ function extend(orig, obj){
 
         extend(origValue, value);
     }
+}
+
+function get(obj, keys){
+    var l = keys.length, i=0;
+
+    while (i<l) {
+        if (!obj.hasOwnProperty(keys[i])) return UNDEFINED;
+
+        obj = obj[keys[i++]];
+
+        if (obj == null && i != l) return UNDEFINED;
+    }
+
+    return obj;
 }
 
 function Configer(){
@@ -87,13 +103,16 @@ function Configer(){
 
     filters.push.apply(noFilters);
 
-    filters.forEach(correct);
-
-    function correct(key) {
+    function correct(key, i) {
         var
-            value = self[key].match(/\w[\w\d]*|(?:\[[^\]]+])+|\*/g),
+            processed = false,
+            value = self[key],
             keys = key.match(/\w[\w\d]*|(?:\[[^\]]+])+|\*/g)
-        ;
+            ;
+
+        if (typeof value !== 'string') throw new Error('Value must be a string for key: ' + key);
+
+        value = value.match(/\w[\w\d]*|(?:\[[^\]]+])+|\*/g);
 
         function convertFilter(filter, i) {
             if (!/^\[/.test(filter)) return;
@@ -112,21 +131,34 @@ function Configer(){
 
         keys.forEach(convertFilter);
 
-
-
         function processKeys(objects, keys) {
             var key = keys[0], restKeys = keys.slice(1),
                 objs = []
-            ;
+                ;
 
             if (!restKeys.length) {
                 if (typeof key !== 'string') throw new Error('Last key cant be a filter');
 
-                if (key === '*' && value[value.length-1] !== '*') throw new Error('Cant set value for unknown key');
-                if (key !== '*' && value[value.length-1] === '*') throw new Error('Cant set unknown value for key');
+                var lastValueKey = value.splice(-1,1)[0];
 
-                //TODO: get value/s and set to objects;
+                if (key === '*' && lastValueKey !== '*') throw new Error('Cant set value for unknown key');
+                if (key !== '*' && lastValueKey === '*') throw new Error('Cant set unknown value for key');
 
+                var valKeys = get(self, value);
+
+                if (valKeys === UNDEFINED) return;
+
+                objs.forEach(function(obj){
+                    if (key == '*') {
+                        Object.keys(valKeys).forEach(set);
+
+                        function set(k) { obj[k] = valKeys[k] }
+                    } else {
+                        obj[key] = valKeys[ lastValueKey ]
+                    }
+                });
+
+                return processed = true;
             }
 
             if (typeof key === 'string') {
@@ -156,9 +188,8 @@ function Configer(){
             processKeys(objs, restKeys);
         }
 
-        try {
-            processKeys([self], keys);
-        } catch (err) {
+        try { processKeys([self], keys); }
+        catch (err) {
             if (err.message === 'Last key cant be a filter' ||
                 err.message === 'Cant set value for unknown key' ||
                 err.message === 'Cant set unknown value for key'
@@ -166,10 +197,50 @@ function Configer(){
             throw err;
         }
 
+        if (processed) delete filters[i];
+
+        return processed;
     }
 
+    while (filters.some(correct));
 
+    function replace(obj, prevObjs) {
 
+        function search(key) {
+            var val = obj[key];
+
+            if (typeof val === 'object') replace(val, prevObjs.concat(obj));
+            else if (typeof val === 'string') {
+                val.replace(/(\\?)(\{([^}]+)\}|\{\{([^}]+)\}\})/g, repl);
+
+                function repl(all, esc, allWithoutEsc, configPath, globalPath){
+                    if (esc) return allWithoutEsc;
+
+                    var where = configPath ? self : global,
+                        path = (configPath || globalPath).match(/^\.+|\w[\w\d]*/g);
+
+                    if (path[0].indexOf('.') != -1) {
+
+                        where = path[0] === '.' ? obj : prevObjs[ prevObjs.length - path[0].length + 1 ];
+
+                        if (where == null) return '<null>';
+
+                        path = path.slice(1);
+                    }
+
+                    all = get(where, path);
+
+                    if (all === UNDEFINED || all == null) return '<null>';
+
+                    return all.toString();
+                }
+            }
+        }
+
+        Object.keys(obj).forEach(search);
+    }
+
+    replace(self,[]);
 }
 
 module.exports = Configer;
