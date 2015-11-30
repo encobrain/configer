@@ -96,12 +96,12 @@ function Configer(){
     function distrib(key){
         if (!/^\./.test(key)) return;
 
-        (/^\[.+\]$/.test(key) ? filters : noFilters).push(key);
+        (/\[/.test(key) ? filters : noFilters).push(key);
     }
 
     Object.keys(this).forEach(distrib);
 
-    filters.push.apply(noFilters);
+    filters.push.apply(filters, noFilters);
 
     function correct(key, i) {
         var
@@ -112,21 +112,20 @@ function Configer(){
 
         if (typeof value !== 'string') throw new Error('Value must be a string for key: ' + key);
 
-        value = value.match(/\w[\w\d]*|(?:\[[^\]]+])+|\*/g);
+        value = value.match(/\w[\w\d]*|\*/g);
 
         function convertFilter(filter, i) {
             if (!/^\[/.test(filter)) return;
+
+            var obj = keys[i] = {}
 
             filter = filter.slice(1,-1).split('][');
             filter.forEach(convert);
 
             function convert(keyValue, i) {
                 keyValue = keyValue.split('=');
-                filter[keyValue[0]] = keyValue[1];
-                delete filter[i];
+                obj[keyValue[0]] = keyValue[1];
             }
-
-            keys[i] = filter;
         }
 
         keys.forEach(convertFilter);
@@ -139,22 +138,22 @@ function Configer(){
             if (!restKeys.length) {
                 if (typeof key !== 'string') throw new Error('Last key cant be a filter');
 
-                var lastValueKey = value.splice(-1,1)[0];
+                var lastValueKey = value[value.length - 1];
 
                 if (key === '*' && lastValueKey !== '*') throw new Error('Cant set value for unknown key');
                 if (key !== '*' && lastValueKey === '*') throw new Error('Cant set unknown value for key');
 
-                var valKeys = get(self, value);
+                var valKeys = get(self, value.slice(0,-1));
 
                 if (valKeys === UNDEFINED) return;
 
-                objs.forEach(function(obj){
+                objects.forEach(function(obj){
                     if (key == '*') {
                         Object.keys(valKeys).forEach(set);
 
-                        function set(k) { obj[k] = valKeys[k] }
+                        function set(k) { if (obj[k] == null) obj[k] = valKeys[k] }
                     } else {
-                        obj[key] = valKeys[ lastValueKey ]
+                        if (obj[key] == null) obj[key] = valKeys[ lastValueKey ]
                     }
                 });
 
@@ -211,7 +210,7 @@ function Configer(){
 
             if (typeof val === 'object') replace(val, prevObjs.concat(obj));
             else if (typeof val === 'string') {
-                val.replace(/(\\?)(\{([^}]+)\}|\{\{([^}]+)\}\})/g, repl);
+                obj[key] = val.replace(/(\\?)(\{([\w\d.]*)}|\{\{(\w[\w\d.]*)}})/g, repl);
 
                 function repl(all, esc, allWithoutEsc, configPath, globalPath){
                     if (esc) return allWithoutEsc;
