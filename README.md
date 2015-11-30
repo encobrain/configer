@@ -23,46 +23,7 @@ Syntax:
 
 Example:
 
-    {
-        "homo": {
-            "hairColor": "brown",
-            "eyesColor": "gray"
-        },
-        
-        "people": [
-            {
-                "name": "Alex",
-                "sex": "male"
-            },
-            
-            {
-                "name": "Anna",
-                "sex": "female",
-                
-                "hairColor": "red"
-            }
-        ],
-        
-        "male": {
-            "eyesColor": "blue",           
-        },
-        
-        "female": {
-            "eyesColor": "green"
-        }
-        
-        ".people.*.*": ".homo.*",
-        
-        ".people[sex=male].*": ".male.*",
-        ".people[sex=female].*": ".female.*"
-        
-        
-    }
-    
-    config.people[0].hairColor === 'brown';
-    config.people[1].hairColor === 'red';
-    config.people[0].eyesColor === 'blue';
-    config.people[1].eyesColor === 'green';
+    See test.js
     
 
 Priority of extending config
