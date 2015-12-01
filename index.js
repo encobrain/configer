@@ -2,7 +2,7 @@ var fs = require('fs'),
     path = require('path'),
     UNDEFINED = {},
     global = (function(){ return this })()
-;
+    ;
 
 function extend(orig, obj){
     var keys = Object.keys(obj);
@@ -12,13 +12,12 @@ function extend(orig, obj){
     function replace(key) {
         var value = obj[key], origValue = orig[key];
 
-        if (origValue == null || value == null ||
-            typeof value !== 'object' || typeof origValue !== 'object') {
+        if (origValue == null || value != null && typeof value != 'object') {
             orig[key] = value;
             return;
         }
 
-        extend(origValue, value);
+        if (value != null) extend(origValue, value);
     }
 }
 
@@ -42,7 +41,7 @@ function Configer(){
         self = this,
         args = [].slice.call(arguments, 0),
         count = args.length
-    ;
+        ;
 
     while (count--) {
         var prm = args[count];
@@ -50,21 +49,31 @@ function Configer(){
         if (typeof prm === 'string') {
             if (!fs.existsSync(prm)) continue;
 
-            if (!fs.statsSync(prm).isFile()) {
-                function isJSON(name) { return name != '.' && name != '..' && !/\.json$/.test(name) }
+            if (!fs.statSync(prm).isFile()) {
+                function isJSON(name) { return fs.statSync(prm+'/'+name).isFile() && /\.json$/.test(name) }
 
                 var files = fs.readdirSync(prm).sort().filter(isJSON),
                     rootIndex = files.indexOf('root.json'),
                     dirConfig = {}
-                ;
+                    ;
 
                 if (rootIndex != -1) files.push.apply(files, files.splice(rootIndex, 1) );
 
                 function merge(name) {
-
                     var cfg = JSON.parse(fs.readFileSync(prm + '/' + name));
 
-                    extend(dirConfig, cfg);
+                    if (name !== 'root.json') {
+                        var _ = dirConfig,
+                            keys = name.match(/\w[^.]*/g).slice(0,-1),
+                            last = keys.splice(-1,1)[0];
+
+                        keys.forEach(get);
+
+                        function get(key) { _ = _[key] || (_[key] = {}) }
+
+                        _[last] = cfg;
+
+                    } else extend(dirConfig, cfg);
                 }
 
                 files.forEach(merge);
@@ -81,16 +90,6 @@ function Configer(){
         extend(this, prm);
     }
 
-    count = args.length;
-
-    while (count--) {
-        prm = args[count];
-
-        if (typeof prm === 'string') ;
-
-        extend(this, prm);
-    }
-
     var filters = [], noFilters = [];
 
     function distrib(key){
@@ -103,7 +102,7 @@ function Configer(){
 
     filters.push.apply(filters, noFilters);
 
-    function correct(key, i) {
+    function correct(key) {
         var
             processed = false,
             value = self[key],
@@ -148,16 +147,26 @@ function Configer(){
                 if (valKeys === UNDEFINED) return;
 
                 objects.forEach(function(obj){
+                    if (obj == null) return;
+
                     if (key == '*') {
                         Object.keys(valKeys).forEach(set);
 
-                        function set(k) { if (obj[k] == null) obj[k] = valKeys[k] }
+                        function set(k) {
+                            if (obj[k] == null && valKeys[k] != null) {
+                                obj[k] = valKeys[k];
+                                processed = true;
+                            }
+                        }
                     } else {
-                        if (obj[key] == null) obj[key] = valKeys[ lastValueKey ]
+                        if (obj[key] == null && valKeys[ lastValueKey ] != null) {
+                            obj[key] = valKeys[ lastValueKey ];
+                            processed = true;
+                        }
                     }
                 });
 
-                return processed = true;
+                return;
             }
 
             if (typeof key === 'string') {
@@ -196,12 +205,18 @@ function Configer(){
             throw err;
         }
 
-        if (processed) delete filters[i];
-
         return processed;
     }
 
-    while (filters.some(correct));
+    var anyProcessed = true;
+
+    while (anyProcessed) {
+        anyProcessed = false;
+
+        filters.forEach(process);
+
+        function process(key){ anyProcessed = correct(key) || anyProcessed; }
+    }
 
     function replace(obj, prevObjs) {
 
@@ -236,10 +251,12 @@ function Configer(){
             }
         }
 
-        Object.keys(obj).forEach(search);
+        if (obj != null) Object.keys(obj).forEach(search);
     }
 
     replace(self,[]);
+
+    return this;
 }
 
 module.exports = Configer;
